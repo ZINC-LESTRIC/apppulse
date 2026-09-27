@@ -12,3 +12,7 @@
 *.aab
 /app/build
 /app/release
+
+# Keep the committed base64 keystore; ignore only the decoded binary if present locally
+# (the binary is produced by CI / local decode step and should not be committed as binary)
+keystore/debug.keystore

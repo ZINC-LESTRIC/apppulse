@@ -21,7 +21,21 @@ android {
         }
     }
 
+    // Fixed debug keystore so CI and local builds share the same signing key.
+    // This prevents "App not installed" signature-mismatch errors on updates.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
