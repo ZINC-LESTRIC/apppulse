@@ -18,7 +18,7 @@ Personal app usage tracker and categorizer for Android (tested target: Realme 14
 - minSdk 26, targetSdk 34
 - Device or emulator with Android 8.0+
 
-## Build & Run
+## Build & Run (Local)
 
 1. Clone the repository:
    ```bash
@@ -36,6 +36,24 @@ Personal app usage tracker and categorizer for Android (tested target: Realme 14
 
 > **Note:** On first open the app will show a “Grant Access” screen because `PACKAGE_USAGE_STATS` cannot be requested via a normal runtime dialog.
 
+## Download pre-built Debug APK (no Android Studio needed)
+
+A GitHub Actions workflow automatically builds the debug APK on every push to `main` (and can also be triggered manually).
+
+**How to get the APK:**
+
+1. Go to the repository **Actions** tab:  
+   https://github.com/ZINC-LESTRIC/apppulse/actions
+2. Click the latest successful **Build Debug APK** workflow run.
+3. Scroll to the **Artifacts** section at the bottom of the run page.
+4. Download the artifact named **`apppulse-debug-apk`** (it contains `app-debug.apk`).
+5. Transfer the APK to your Android phone (via USB, Google Drive, email, etc.).
+6. On the phone, open the APK file with a file manager.  
+   You will need to enable **“Install unknown apps”** (or “Install from unknown sources”) for the app you use to open the file (Files, Chrome, Drive, etc.).
+7. Confirm the installation.
+
+The workflow also supports manual runs: on the Actions page choose **Build Debug APK** → **Run workflow**.
+
 ## Granting Usage Access Permission
 
 1. Tap **Grant Access in Settings**.
@@ -43,7 +61,7 @@ Personal app usage tracker and categorizer for Android (tested target: Realme 14
 3. Press the back button / return to AppPulse.
 4. The app automatically detects the permission on `ON_RESUME` and loads the list.
 
-You can also open the same screen manually:
+You can also open the same screen manually:  
 **Settings → Apps → Special app access → Usage access → AppPulse**.
 
 ## Project Structure
