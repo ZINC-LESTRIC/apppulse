@@ -1,9 +1,10 @@
-# AppPulse — Phase 1
+# AppPulse — Phase 1 + Phase 2
 
-Personal app usage tracker and categorizer for Android (tested target: Realme 14 5G / Android 14+).
+Personal app usage tracker, categorizer, and notification reader for Android (tested target: Realme 14 5G / Android 14+).
 
-## Features (Phase 1)
+## Features
 
+### Phase 1 — Usage tracking
 - Requests **Usage Access** (PACKAGE_USAGE_STATS) via the special Settings screen
 - Collects foreground usage time for the last **7 days** for all launchable apps
 - Displays a sorted list (Most used / Least used) with app icon, name, and formatted time (`Xh Ym`)
@@ -11,91 +12,82 @@ Personal app usage tracker and categorizer for Android (tested target: Realme 14
 - Categories already used appear as quick-select chips
 - Default category: `Uncategorized`
 
+### Phase 2 — Notification reader + TTS
+- **NotificationListenerService** reads incoming notifications
+- Per-app **allowlist** (everything OFF by default)
+- Reads allowed notifications aloud via **Text-to-Speech**: "[App] says: [title]. [text]"
+- Skips AppPulse’s own notifications and ongoing/foreground-service notifications
+- Notification **log** of the last 50 spoken/logged notifications
+- Bottom navigation: **Usage** | **Allowlist** | **Log**
+
 ## Requirements
 
-- Android Studio Hedgehog (2023.1.1) or newer (or Android Studio Ladybug+)
+- Android Studio Hedgehog (2023.1.1) or newer
 - JDK 17
 - minSdk 26, targetSdk 34
-- Device or emulator with Android 8.0+
+- Real device recommended (notification listener + accurate usage stats)
 
 ## Build & Run (Local)
 
-1. Clone the repository:
+1. Clone:
    ```bash
    git clone https://github.com/ZINC-LESTRIC/apppulse.git
    cd apppulse
    ```
+2. Open in Android Studio → Sync Gradle → Run on a device.
 
-2. Open the project in **Android Studio**.
+## Download pre-built Debug APK
 
-3. Let Gradle sync (it will download dependencies).
+1. Go to **Actions**: https://github.com/ZINC-LESTRIC/apppulse/actions
+2. Open the latest successful **Build Debug APK** run
+3. Download the artifact **`apppulse-debug-apk`**
+4. Install on your phone (enable “Install unknown apps”)
 
-4. Connect a real device (recommended for accurate usage stats) or start an emulator.
+## Required special permissions
 
-5. Click **Run** ▶ (or `./gradlew installDebug`).
+### 1. Usage Access (Phase 1)
+Settings → Apps → Special app access → Usage access → AppPulse → Allow
 
-> **Note:** On first open the app will show a “Grant Access” screen because `PACKAGE_USAGE_STATS` cannot be requested via a normal runtime dialog.
+### 2. Notification access (Phase 2)
+Settings → Apps → Special app access → Notification access → AppPulse → Allow
 
-## Download pre-built Debug APK (no Android Studio needed)
+(Or use the in-app buttons that open these screens directly.)
 
-A GitHub Actions workflow automatically builds the debug APK on every push to `main` (and can also be triggered manually).
+After granting either permission, return to the app — it re-checks on resume.
 
-**How to get the APK:**
+## How to use Phase 2
 
-1. Go to the repository **Actions** tab:  
-   https://github.com/ZINC-LESTRIC/apppulse/actions
-2. Click the latest successful **Build Debug APK** workflow run.
-3. Scroll to the **Artifacts** section at the bottom of the run page.
-4. Download the artifact named **`apppulse-debug-apk`** (it contains `app-debug.apk`).
-5. Transfer the APK to your Android phone (via USB, Google Drive, email, etc.).
-6. On the phone, open the APK file with a file manager.  
-   You will need to enable **“Install unknown apps”** (or “Install from unknown sources”) for the app you use to open the file (Files, Chrome, Drive, etc.).
-7. Confirm the installation.
+1. Grant **Notification access**.
+2. Open the **Allowlist** tab and turn ON the apps whose notifications you want read aloud.
+3. Receive a notification from an enabled app → it is spoken and appears in the **Log** tab.
 
-The workflow also supports manual runs: on the Actions page choose **Build Debug APK** → **Run workflow**.
-
-## Granting Usage Access Permission
-
-1. Tap **Grant Access in Settings**.
-2. In the system screen, find **AppPulse** and toggle **Allow usage access** (or “Permit usage access”).
-3. Press the back button / return to AppPulse.
-4. The app automatically detects the permission on `ON_RESUME` and loads the list.
-
-You can also open the same screen manually:  
-**Settings → Apps → Special app access → Usage access → AppPulse**.
-
-## Project Structure
+## Project structure (key files)
 
 ```
 app/src/main/java/com/ahmar/apppulse/
-├── MainActivity.kt          # Entry point + permission re-check on resume
-├── MainScreen.kt            # Compose UI (list, chips, dialogs)
-├── AppPulseViewModel.kt     # State + Room + sorting
-├── UsageStatsHelper.kt      # UsageStatsManager + PackageManager logic
+├── MainActivity.kt
+├── MainScreen.kt                 # Bottom tabs + Phase 1 UI
+├── AppPulseViewModel.kt
+├── UsageStatsHelper.kt
+├── NotificationAccessHelper.kt
+├── NotificationReaderService.kt  # NotificationListenerService
+├── TtsManager.kt
+├── NotificationAccessScreen.kt
+├── AllowlistScreen.kt
+├── NotificationLogScreen.kt
 └── data/
-    ├── AppCategory.kt         # Room entity
-    ├── AppCategoryDao.kt      # DAO
-    └── AppDatabase.kt         # Room database
+    ├── AppCategory.kt / Dao
+    ├── NotificationAllowlist.kt / Dao
+    ├── NotificationLog.kt / Dao
+    └── AppDatabase.kt            # version 2
 ```
 
-## Tech Stack
+## Tech stack
 
 - Kotlin + Jetpack Compose (Material 3)
-- Room (local persistence)
-- UsageStatsManager + AppOpsManager
+- Room
+- UsageStatsManager + NotificationListenerService + TextToSpeech
 - Coroutines + Flow + ViewModel
-- Single-activity architecture
-
-## Acceptance Criteria (Phase 1)
-
-- [x] Builds and runs on a real device without crashing
-- [x] Shows grant-access screen when permission is missing and correctly detects grant on return
-- [x] List shows real usage data for launchable apps, sorted by usage time
-- [x] Category assignment persists across app restarts (Room)
-
-## Later Phases (not implemented)
-
-Notifications, TTS, Accessibility services, voice features, etc.
 
 ---
 
