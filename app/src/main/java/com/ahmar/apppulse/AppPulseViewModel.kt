@@ -1,6 +1,7 @@
 package com.ahmar.apppulse
 
 import android.app.Application
+import android.graphics.drawable.Drawable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ahmar.apppulse.data.AppCategory
 import com.ahmar.apppulse.data.AppDatabase
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -17,7 +19,7 @@ import kotlinx.coroutines.launch
 data class AppListItem(
     val packageName: String,
     val appName: String,
-    val icon: android.graphics.drawable.Drawable,
+    val icon: Drawable,
     val usageMillis: Long,
     val category: String
 )
@@ -34,19 +36,22 @@ class AppPulseViewModel(application: Application) : AndroidViewModel(application
     var isLoading by mutableStateOf(false)
         private set
 
-    var sortOrder by mutableStateOf(SortOrder.MOST_USED)
-        private set
+    private val _sortOrder = MutableStateFlow(SortOrder.MOST_USED)
+    val sortOrder: StateFlow<SortOrder> = _sortOrder
 
-    private var rawUsageList by mutableStateOf<List<AppUsageInfo>>(emptyList())
+    private val _rawUsageList = MutableStateFlow<List<AppUsageInfo>>(emptyList())
 
     val categories: StateFlow<List<String>> = dao.getDistinctCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Properly combine raw usage + categories + sort order
     val appList: StateFlow<List<AppListItem>> = combine(
-        dao.getAll()
-    ) { categoriesList ->
-        val categoryMap = categoriesList.associate { it.packageName to it.category }
-        val items = rawUsageList.map { usage ->
+        _rawUsageList,
+        dao.getAll(),
+        _sortOrder
+    ) { usageList, categoryList, order ->
+        val categoryMap = categoryList.associate { it.packageName to it.category }
+        val items = usageList.map { usage ->
             AppListItem(
                 packageName = usage.packageName,
                 appName = usage.appName,
@@ -55,14 +60,11 @@ class AppPulseViewModel(application: Application) : AndroidViewModel(application
                 category = categoryMap[usage.packageName] ?: "Uncategorized"
             )
         }
-        when (sortOrder) {
+        when (order) {
             SortOrder.MOST_USED -> items.sortedByDescending { it.usageMillis }
             SortOrder.LEAST_USED -> items.sortedBy { it.usageMillis }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // Re-compute when sort changes by triggering a dummy update via categories flow or manual
-    // Since combine only depends on dao, we expose a derived list and refresh on sort change
 
     init {
         if (hasPermission) {
@@ -71,8 +73,9 @@ class AppPulseViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun checkPermission() {
-        hasPermission = UsageStatsHelper.hasUsageStatsPermission(getApplication())
-        if (hasPermission && rawUsageList.isEmpty()) {
+        val granted = UsageStatsHelper.hasUsageStatsPermission(getApplication())
+        hasPermission = granted
+        if (granted && _rawUsageList.value.isEmpty()) {
             loadUsageData()
         }
     }
@@ -82,11 +85,10 @@ class AppPulseViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleSortOrder() {
-        sortOrder = if (sortOrder == SortOrder.MOST_USED) SortOrder.LEAST_USED else SortOrder.MOST_USED
-        // Force refresh of derived list by reloading or using a different approach
-        // We'll recompute in UI or keep a separate state
-        viewModelScope.launch {
-            // Trigger recomposition by updating a trigger or just rely on UI reading sortOrder
+        _sortOrder.value = if (_sortOrder.value == SortOrder.MOST_USED) {
+            SortOrder.LEAST_USED
+        } else {
+            SortOrder.MOST_USED
         }
     }
 
@@ -94,7 +96,7 @@ class AppPulseViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             isLoading = true
             try {
-                rawUsageList = UsageStatsHelper.getAppUsageStats(getApplication())
+                _rawUsageList.value = UsageStatsHelper.getAppUsageStats(getApplication())
             } finally {
                 isLoading = false
             }
@@ -103,24 +105,8 @@ class AppPulseViewModel(application: Application) : AndroidViewModel(application
 
     fun setCategory(packageName: String, category: String) {
         viewModelScope.launch {
-            dao.insertOrUpdate(AppCategory(packageName, category.trim().ifEmpty { "Uncategorized" }))
-        }
-    }
-
-    // Helper to get sorted list considering current sortOrder (since StateFlow combine doesn't auto-react to sortOrder)
-    fun getSortedList(categoriesMap: Map<String, String>): List<AppListItem> {
-        val items = rawUsageList.map { usage ->
-            AppListItem(
-                packageName = usage.packageName,
-                appName = usage.appName,
-                icon = usage.icon,
-                usageMillis = usage.usageMillis,
-                category = categoriesMap[usage.packageName] ?: "Uncategorized"
-            )
-        }
-        return when (sortOrder) {
-            SortOrder.MOST_USED -> items.sortedByDescending { it.usageMillis }
-            SortOrder.LEAST_USED -> items.sortedBy { it.usageMillis }
+            val clean = category.trim().ifEmpty { "Uncategorized" }
+            dao.insertOrUpdate(AppCategory(packageName, clean))
         }
     }
 }
