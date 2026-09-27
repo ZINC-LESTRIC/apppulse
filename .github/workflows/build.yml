@@ -22,6 +22,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -29,23 +31,14 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses || true
 
-      - name: Bootstrap Gradle Wrapper JAR (if missing)
+      - name: Generate Gradle Wrapper (if missing or incomplete)
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "Downloading gradle-wrapper.jar..."
-            mkdir -p gradle/wrapper
-            curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-              https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar
-            # Fallback: use services.gradle.org known good location if needed
-            if [ ! -s gradle/wrapper/gradle-wrapper.jar ]; then
-              curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-                https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar
-            fi
+            echo "Generating Gradle Wrapper..."
+            gradle wrapper --gradle-version 8.2
           fi
+          chmod +x ./gradlew
           ls -la gradle/wrapper/
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
