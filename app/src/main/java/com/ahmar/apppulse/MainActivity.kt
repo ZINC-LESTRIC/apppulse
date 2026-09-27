@@ -21,15 +21,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Eagerly init TTS so the first notification can be spoken promptly
+        TtsManager.init(applicationContext)
+
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    // Re-check permission when returning from Settings
+                    // Re-check both permissions when returning from Settings
                     val lifecycleOwner = LocalLifecycleOwner.current
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
                             if (event == Lifecycle.Event.ON_RESUME) {
-                                viewModel.checkPermission()
+                                viewModel.checkPermissions()
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)

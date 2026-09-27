@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
@@ -23,18 +26,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: AppPulseViewModel) {
-    val hasPermission = viewModel.hasPermission
+    val selectedTab = viewModel.selectedTab
+    val hasUsagePermission = viewModel.hasUsagePermission
+    val hasNotificationAccess = viewModel.hasNotificationAccess
     val isLoading = viewModel.isLoading
     val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
     val appList by viewModel.appList.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val allowlistItems by viewModel.allowlistItems.collectAsStateWithLifecycle()
+    val notificationLogs by viewModel.notificationLogs.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("AppPulse", fontWeight = FontWeight.Bold) },
                 actions = {
-                    if (hasPermission) {
+                    if (selectedTab == AppTab.USAGE && hasUsagePermission) {
                         IconButton(onClick = { viewModel.toggleSortOrder() }) {
                             Icon(Icons.Default.Sort, contentDescription = "Toggle sort")
                         }
@@ -44,51 +51,109 @@ fun MainScreen(viewModel: AppPulseViewModel) {
                     }
                 }
             )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.USAGE,
+                    onClick = { viewModel.selectTab(AppTab.USAGE) },
+                    icon = { Icon(Icons.Default.List, contentDescription = "Usage") },
+                    label = { Text("Usage") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.ALLOWLIST,
+                    onClick = { viewModel.selectTab(AppTab.ALLOWLIST) },
+                    icon = { Icon(Icons.Default.Notifications, contentDescription = "Allowlist") },
+                    label = { Text("Allowlist") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.LOG,
+                    onClick = { viewModel.selectTab(AppTab.LOG) },
+                    icon = { Icon(Icons.Default.History, contentDescription = "Log") },
+                    label = { Text("Log") }
+                )
+            }
         }
     ) { padding ->
-        if (!hasPermission) {
-            GrantAccessScreen(
-                onGrantClick = { viewModel.openUsageSettings() },
-                modifier = Modifier.padding(padding)
-            )
-        } else {
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-            ) {
-                Text(
-                    text = if (sortOrder == SortOrder.MOST_USED)
-                        "Sorted by: Most used (last 7 days)"
-                    else
-                        "Sorted by: Least used (last 7 days)",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                if (isLoading && appList.isEmpty()) {
-                    Box(
-                        Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+        when (selectedTab) {
+            AppTab.USAGE -> {
+                if (!hasUsagePermission) {
+                    GrantAccessScreen(
+                        onGrantClick = { viewModel.openUsageSettings() },
+                        modifier = Modifier.padding(padding)
+                    )
                 } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier
+                            .padding(padding)
+                            .fillMaxSize()
                     ) {
-                        items(appList, key = { it.packageName }) { item ->
-                            AppUsageRow(
-                                item = item,
-                                existingCategories = categories,
-                                onCategorySelected = { newCategory ->
-                                    viewModel.setCategory(item.packageName, newCategory)
+                        Text(
+                            text = if (sortOrder == SortOrder.MOST_USED)
+                                "Sorted by: Most used (last 7 days)"
+                            else
+                                "Sorted by: Least used (last 7 days)",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        if (isLoading && appList.isEmpty()) {
+                            Box(
+                                Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(appList, key = { it.packageName }) { item ->
+                                    AppUsageRow(
+                                        item = item,
+                                        existingCategories = categories,
+                                        onCategorySelected = { newCategory ->
+                                            viewModel.setCategory(item.packageName, newCategory)
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
                     }
+                }
+            }
+
+            AppTab.ALLOWLIST -> {
+                if (!hasNotificationAccess) {
+                    NotificationAccessScreen(
+                        onGrantClick = { viewModel.openNotificationSettings() },
+                        modifier = Modifier.padding(padding)
+                    )
+                } else {
+                    AllowlistScreen(
+                        items = allowlistItems,
+                        onToggle = { pkg, enabled ->
+                            viewModel.setAllowlistEnabled(pkg, enabled)
+                        },
+                        modifier = Modifier.padding(padding)
+                    )
+                }
+            }
+
+            AppTab.LOG -> {
+                if (!hasNotificationAccess) {
+                    NotificationAccessScreen(
+                        onGrantClick = { viewModel.openNotificationSettings() },
+                        modifier = Modifier.padding(padding)
+                    )
+                } else {
+                    NotificationLogScreen(
+                        logs = notificationLogs,
+                        onClear = { viewModel.clearNotificationLog() },
+                        modifier = Modifier.padding(padding)
+                    )
                 }
             }
         }
