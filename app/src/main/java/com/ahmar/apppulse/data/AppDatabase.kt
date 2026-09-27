@@ -5,9 +5,19 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [AppCategory::class], version = 1, exportSchema = false)
+@Database(
+    entities = [
+        AppCategory::class,
+        NotificationAllowlist::class,
+        NotificationLog::class
+    ],
+    version = 2,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appCategoryDao(): AppCategoryDao
+    abstract fun notificationAllowlistDao(): NotificationAllowlistDao
+    abstract fun notificationLogDao(): NotificationLogDao
 
     companion object {
         @Volatile
@@ -19,7 +29,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "apppulse_db"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }
